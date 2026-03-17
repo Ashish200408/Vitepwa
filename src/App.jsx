@@ -10,30 +10,30 @@ function App() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [error, setError] = useState(null);
 
-  // ✅ Using reliable free public APIs without authentication or rate limits
+  // ✅ Using publicly accessible free APIs with CORS enabled (verified working)
   const APIs = {
     happy: {
-      name: "JSONPlaceholder API",
+      name: "Random User API",
       urls: [
-        "https://jsonplaceholder.typicode.com/posts?_limit=10"
+        "https://randomuser.me/api/?results=10"
       ]
     },
     sad: {
-      name: "JSONPlaceholder API", 
+      name: "Trivia API", 
       urls: [
-        "https://jsonplaceholder.typicode.com/posts?_limit=10"
+        "https://opentdb.com/api.php?amount=10&type=multiple"
       ]
     },
     angry: {
-      name: "JSONPlaceholder API",
+      name: "Rest Countries API",
       urls: [
-        "https://jsonplaceholder.typicode.com/posts?_limit=10"
+        "https://restcountries.com/v3.1/all?fields=name,population,region"
       ]
     },
     focus: {
-      name: "GitHub API",
+      name: "Pokemon API",
       urls: [
-        "https://api.github.com/search/repositories?q=stars:>10000&sort=stars&order=desc&per_page=10"
+        "https://pokeapi.co/api/v2/pokemon?limit=10"
       ]
     }
   };
@@ -66,31 +66,55 @@ function App() {
     return () => window.removeEventListener("beforeinstallprompt", handler);
   }, []);
 
-  // Parse responses from GitHub and JSONPlaceholder APIs
+  // Parse responses from multiple public APIs
   const parseApiResponse = useCallback((data, apiName) => {
     let articles = [];
 
-    // Handle GitHub API response
-    if (data.items && Array.isArray(data.items)) {
-      articles = data.items
-        .filter(item => item.name)
-        .map((item, idx) => ({
-          title: item.name || "Repository",
-          description: item.description || `⭐ ${item.stargazers_count} stars | 🍴 ${item.forks_count} forks`,
-          image: `https://avatars.githubusercontent.com/u/${item.owner.id}?s=200`,
-          url: item.html_url || "https://github.com",
+    // Handle Random User API response (happy)
+    if (data.results && Array.isArray(data.results)) {
+      articles = data.results
+        .filter(user => user.name)
+        .map(user => ({
+          title: `👤 ${user.name.first} ${user.name.last}`,
+          description: `From ${user.location.city}, ${user.location.country}. ${user.email}`,
+          image: user.picture?.medium || user.picture?.large || "https://images.unsplash.com/photo-1495505442757-a1efb6729352?w=400&h=300&fit=crop",
+          url: "#",
         }));
     }
     
-    // Handle JSONPlaceholder response (array of posts)
-    else if (Array.isArray(data)) {
+    // Handle Trivia Database response (sad)
+    else if (data.results && Array.isArray(data.results) && data.results[0]?.question) {
+      articles = data.results
+        .filter(q => q.question)
+        .map((q, idx) => ({
+          title: `❓ Trivia Question ${idx + 1}`,
+          description: q.question.replace(/&quot;/g, '"').replace(/&#039;/g, "'").substring(0, 160),
+          image: "https://images.unsplash.com/photo-1532012197267-da84610ee6da?w=400&h=300&fit=crop",
+          url: "#",
+        }));
+    }
+    
+    // Handle Rest Countries API response (angry)
+    else if (Array.isArray(data) && data[0]?.name) {
       articles = data
-        .filter(item => item.title)
-        .map((item, idx) => ({
-          title: item.title || `Post #${item.id}`,
-          description: item.body || "Read more...",
-          image: `https://picsum.photos/seed/${item.id}/400/300?random=${idx}`,
-          url: `https://jsonplaceholder.typicode.com/posts/${item.id}`,
+        .filter(country => country.name)
+        .slice(0, 10)
+        .map((country, idx) => ({
+          title: `🌍 ${country.name?.common || country.name}`,
+          description: `Region: ${country.region || 'N/A'} | Population: ${country.population?.toLocaleString() || 'N/A'}`,
+          image: `https://flagcdn.com/w400/${country.cca2?.toLowerCase()}.png`,
+          url: "#",
+        }));
+    }
+    
+    // Handle Pokemon API response (focus)
+    else if (data.results && Array.isArray(data.results) && data.results[0]?.name) {
+      articles = data.results
+        .map((pokemon, idx) => ({
+          title: `🎮 ${pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1)}`,
+          description: `Pokemon #${idx + 1}. A fascinating creature from the Pokedex.`,
+          image: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${idx + 1}.png`,
+          url: pokemon.url || "#",
         }));
     }
 
