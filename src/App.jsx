@@ -10,23 +10,23 @@ function App() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [error, setError] = useState(null);
 
-  // Different APIs that actually work without rate limits
+  // Using Inshorts API - Free, No Auth, CORS Enabled, Returns Real News
   const APIs = {
     happy: {
-      name: "Hacker News",
-      url: () => `https://hacker-news.firebaseapp.com/v0/topstories.json?print=pretty`
+      name: "Inshorts API",
+      url: () => `https://inshortsapi.vercel.app/news?category=happy`
     },
     sad: {
-      name: "Reddit API",
-      url: () => `https://www.reddit.com/r/UpliftingNews/.json?limit=25`
+      name: "Inshorts API",
+      url: () => `https://inshortsapi.vercel.app/news?category=health`
     },
     angry: {
-      name: "Reddit API",
-      url: () => `https://www.reddit.com/r/news/.json?limit=25`
+      name: "Inshorts API",
+      url: () => `https://inshortsapi.vercel.app/news?category=politics`
     },
     focus: {
-      name: "GitHub Trending",
-      url: () => `https://api.github.com/search/repositories?q=language:javascript&sort=stars&per_page=25`
+      name: "Inshorts API",
+      url: () => `https://inshortsapi.vercel.app/news?category=technology`
     }
   };
 
@@ -58,63 +58,25 @@ function App() {
     return () => window.removeEventListener("beforeinstallprompt", handler);
   }, []);
 
-  // Parse different API response formats
+  // Parse Inshorts API response - returns news articles directly
   const parseApiResponse = useCallback((data, apiName) => {
     let articles = [];
 
-    if (apiName === "Hacker News") {
-      // Hacker News returns array of IDs, we'll create mock articles
-      articles = [
-        {
-          title: "🔥 Top Story from Hacker News",
-          description: "Check out the latest trending tech discussion on Hacker News",
-          image: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=400&h=300&fit=crop",
-          url: "https://news.ycombinator.com"
-        },
-        {
-          title: "💻 Developer News",
-          description: "Latest programming and technology updates from the community",
-          image: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=400&h=300&fit=crop",
-          url: "https://news.ycombinator.com"
-        },
-        {
-          title: "🚀 Innovation & Tech",
-          description: "Discover new innovations and tech breakthroughs",
-          image: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=400&h=300&fit=crop",
-          url: "https://news.ycombinator.com"
-        }
-      ];
-    } else if (apiName === "Reddit API") {
-      // Reddit API returns posts in data.data.children
-      if (data.data && data.data.children) {
-        articles = data.data.children
-          .filter(post => post.data.title && post.data.selftext)
-          .map(post => ({
-            title: post.data.title,
-            description: post.data.selftext.substring(0, 160) || "Read more on Reddit",
-            image: post.data.thumbnail && post.data.thumbnail.startsWith('http') 
-              ? post.data.thumbnail 
-              : "https://images.unsplash.com/photo-1611339555312-e607c04352fa?w=400&h=300&fit=crop",
-            url: `https://reddit.com${post.data.permalink}`,
-          }));
-      }
-    } else if (apiName === "GitHub Trending") {
-      // GitHub returns repositories
-      if (Array.isArray(data.items)) {
-        articles = data.items
-          .map(repo => ({
-            title: repo.name,
-            description: repo.description || "Popular GitHub repository",
-            image: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=400&h=300&fit=crop",
-            url: repo.html_url,
-          }));
-      }
+    // Inshorts returns articles/news array directly
+    if (data.data && Array.isArray(data.data)) {
+      articles = data.data
+        .map(item => ({
+          title: item.title,
+          description: item.content || item.description || "Read more...",
+          image: item.imageUrl || item.image || "https://images.unsplash.com/photo-1495505442757-a1efb6729352?w=400&h=300&fit=crop",
+          url: item.readMoreUrl || item.link || "https://www.inshorts.com",
+        }));
     }
 
     return articles;
   }, []);
 
-  // ✅ Fetch news from reliable APIs without rate limits
+  // ✅ Fetch news from Inshorts API - free with CORS enabled
   useEffect(() => {
     let isMounted = true;
 
@@ -131,40 +93,51 @@ function App() {
         console.log(`📡 Using API: ${apiConfig.name}`);
 
         const apiUrl = apiConfig.url();
+        console.log(`🔗 URL: ${apiUrl}`);
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-        const res = await fetch(apiUrl, { signal: controller.signal });
+        const res = await fetch(apiUrl, { 
+          signal: controller.signal,
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
         clearTimeout(timeoutId);
 
         if (!res.ok) {
-          throw new Error(`API Error: ${res.status}`);
+          throw new Error(`API Error: ${res.status} ${res.statusText}`);
         }
 
         const data = await res.json();
+        console.log(`📦 Response received:`, data);
 
         if (isMounted) {
           const parsed = parseApiResponse(data, apiConfig.name);
+          console.log(`✓ Parsed ${parsed.length} articles`);
           
           // Filter and limit articles
           const validArticles = parsed
-            .filter(item => item.title && item.description)
+            .filter(item => item.title && item.description && item.image)
             .slice(0, 10)
             .map(item => ({
               ...item,
               description: item.description.substring(0, 160)
             }));
 
+          console.log(`✓ Valid articles: ${validArticles.length}`);
+
           if (validArticles.length > 0) {
-            console.log(`✅ Loaded ${validArticles.length} articles from ${apiConfig.name}`);
+            console.log(`✅ SUCCESS: Loaded ${validArticles.length} articles`);
             setArticles(validArticles);
           } else {
+            console.warn("⚠️ No valid articles after filtering");
             setError("No articles found. Please try again.");
           }
         }
       } catch (err) {
-        console.error("❌ Error fetching news:", err.message);
+        console.error("❌ Error fetching news:", err.message, err.name);
         if (isMounted) {
           if (err.name === "AbortError") {
             setError("Request timeout. Please try again.");
@@ -179,9 +152,11 @@ function App() {
       }
     };
 
-    fetchNews();
-
+    // Add small delay before fetching
+    const timer = setTimeout(fetchNews, 100);
+    
     return () => {
+      clearTimeout(timer);
       isMounted = false;
     };
   }, [activeMood, parseApiResponse, moodDescriptions, APIs]);
