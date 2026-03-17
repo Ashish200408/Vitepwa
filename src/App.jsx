@@ -8,8 +8,7 @@ function App() {
   const [search, setSearch] = useState("");
   const [deferredPrompt, setDeferredPrompt] = useState(null);
 
-  // 🔑 Put your Currents API key here
-  const API_KEY = "J9hAUT4yrUWkynylExt9ZkRh0RQzjs1txRj68gmqFyOTTlHg";
+  const API_KEY = "gl7JoUc199uxMVp8rIZcZ8rxD3tjrBGAiL_NUyUJ_isIUBr5";
 
   const moodMap = {
     happy: "positive",
