@@ -8,7 +8,7 @@ function App() {
   const [search, setSearch] = useState("");
   const [deferredPrompt, setDeferredPrompt] = useState(null);
 
-  // 🔑 PUT YOUR CURRENTS API KEY HERE
+  // 🔑 Put your Currents API key here
   const API_KEY = "J9hAUT4yrUWkynylExt9ZkRh0RQzjs1txRj68gmqFyOTTlHg";
 
   const moodMap = {
@@ -18,7 +18,7 @@ function App() {
     focus: "technology",
   };
 
-  // 📲 Install button listener
+  // 📲 Capture install event
   useEffect(() => {
     const handler = (e) => {
       e.preventDefault();
@@ -27,11 +27,12 @@ function App() {
 
     window.addEventListener("beforeinstallprompt", handler);
 
-    return () =>
+    return () => {
       window.removeEventListener("beforeinstallprompt", handler);
+    };
   }, []);
 
-  // 📰 Fetch news (CURRENTS API)
+  // 📰 Fetch news
   useEffect(() => {
     const fetchNews = async () => {
       setLoading(true);
@@ -44,21 +45,19 @@ function App() {
         );
 
         const data = await res.json();
-        console.log("API DATA:", data); // 🔍 debug
 
         if (!data.news) {
           setArticles([]);
-          return;
+        } else {
+          const formatted = data.news.slice(0, 10).map((item) => ({
+            title: item.title,
+            description: item.description,
+            image: item.image,
+            url: item.url,
+          }));
+
+          setArticles(formatted);
         }
-
-        const formatted = data.news.slice(0, 10).map((item) => ({
-          title: item.title,
-          description: item.description,
-          image: item.image,
-          url: item.url,
-        }));
-
-        setArticles(formatted);
       } catch (error) {
         console.log("ERROR:", error);
         setArticles([]);
@@ -75,8 +74,13 @@ function App() {
     setSearch("");
   };
 
+  // 📲 Install handler
   const handleInstall = async () => {
-    if (!deferredPrompt) return;
+    if (!deferredPrompt) {
+      alert("Install not ready. Try refresh or incognito.");
+      return;
+    }
+
     deferredPrompt.prompt();
     await deferredPrompt.userChoice;
     setDeferredPrompt(null);
@@ -86,14 +90,12 @@ function App() {
     <div className="container">
       <h1>🧠 Mood News App</h1>
 
-      {/* 📲 Install Button */}
-      {deferredPrompt && (
-        <button className="install-btn" onClick={handleInstall}>
-          📲 Install App
-        </button>
-      )}
+      {/* Install Button */}
+      <button className="install-btn" onClick={handleInstall}>
+        📲 Install App
+      </button>
 
-      {/* 🔍 Search */}
+      {/* Search */}
       <input
         type="text"
         placeholder="Search news..."
@@ -102,26 +104,44 @@ function App() {
         onChange={(e) => setSearch(e.target.value)}
       />
 
-      {/* 😊 Mood Buttons */}
+      {/* Mood Buttons */}
       <div className="moods">
-        {["happy", "sad", "angry", "focus"].map((mood) => (
-          <button
-            key={mood}
-            className={activeMood === mood ? "active" : ""}
-            onClick={() => handleMood(mood)}
-          >
-            {mood}
-          </button>
-        ))}
+        <button
+          className={activeMood === "happy" ? "active" : ""}
+          onClick={() => handleMood("happy")}
+        >
+          happy
+        </button>
+
+        <button
+          className={activeMood === "sad" ? "active" : ""}
+          onClick={() => handleMood("sad")}
+        >
+          sad
+        </button>
+
+        <button
+          className={activeMood === "angry" ? "active" : ""}
+          onClick={() => handleMood("angry")}
+        >
+          angry
+        </button>
+
+        <button
+          className={activeMood === "focus" ? "active" : ""}
+          onClick={() => handleMood("focus")}
+        >
+          focus
+        </button>
       </div>
 
-      {/* ⏳ Loading */}
-      {loading && <p className="loading">Loading... ⏳</p>}
+      {/* Loading */}
+      {loading && <p className="loading">Loading...</p>}
 
-      {/* 📰 News */}
+      {/* News */}
       <div className="grid">
         {!loading && articles.length === 0 ? (
-          <p>No news found 😢</p>
+          <p>No news found</p>
         ) : (
           articles.map((item, index) => (
             <div className="card" key={index}>
