@@ -3,21 +3,19 @@ import "./App.css";
 
 function App() {
   const [articles, setArticles] = useState([]);
-  const [category, setCategory] = useState("general");
   const [loading, setLoading] = useState(false);
   const [activeMood, setActiveMood] = useState("happy");
   const [search, setSearch] = useState("");
 
-  
+  // 📲 Install button
   const [deferredPrompt, setDeferredPrompt] = useState(null);
 
-  const API_KEY = "d0a340b809b77c76ca20ea2e5474569f"; 
-
+  // Mood mapping (used as keywords)
   const moodMap = {
-    happy: "entertainment",
-    sad: "health",
-    angry: "general",
-    focus: "technology",
+    happy: "space",
+    sad: "mars",
+    angry: "rocket",
+    focus: "nasa",
   };
 
   // ✅ PWA install listener
@@ -28,34 +26,45 @@ function App() {
     });
   }, []);
 
-  // ✅ Fetch news (SAFE VERSION)
+  // ✅ Fetch news (WORKS EVERYWHERE)
   useEffect(() => {
     setLoading(true);
 
-    fetch(
-      `https://gnews.io/api/v4/search?q=${
-        search || category
-      }&country=in&apikey=${API_KEY}`
-    )
+    fetch("https://api.spaceflightnewsapi.net/v3/articles")
       .then((res) => res.json())
       .then((data) => {
-        if (data.articles) {
-          setArticles(data.articles);
+        let filtered = data;
+
+        // 🔍 Filter by mood/search
+        if (search) {
+          filtered = data.filter((item) =>
+            item.title.toLowerCase().includes(search.toLowerCase())
+          );
         } else {
-          console.log("API issue:", data);
-          setArticles([]);
+          const keyword = moodMap[activeMood];
+          filtered = data.filter((item) =>
+            item.title.toLowerCase().includes(keyword)
+          );
         }
+
+        const formatted = filtered.slice(0, 10).map((item) => ({
+          title: item.title,
+          description: item.summary,
+          image: item.imageUrl,
+          url: item.url,
+        }));
+
+        setArticles(formatted);
         setLoading(false);
       })
       .catch((err) => {
-        console.log("Fetch error:", err);
+        console.log(err);
         setArticles([]);
         setLoading(false);
       });
-  }, [category, search]);
+  }, [activeMood, search]);
 
   const handleMood = (mood) => {
-    setCategory(moodMap[mood]);
     setActiveMood(mood);
     setSearch("");
   };
@@ -64,7 +73,7 @@ function App() {
     <div className="container">
       <h1>🧠 Mood News App</h1>
 
-      {/* 🔥 Install Button */}
+      {/* 📲 Install Button */}
       {deferredPrompt && (
         <button
           onClick={() => deferredPrompt.prompt()}
