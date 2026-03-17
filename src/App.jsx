@@ -11,29 +11,31 @@ function App() {
   const [error, setError] = useState(null);
 
   // ✅ Using publicly accessible free APIs with CORS enabled (verified working)
+  // Use CORS proxy for all API URLs
+  const cors = "https://corsproxy.io/?";
   const APIs = {
     happy: {
       name: "Random User API",
       urls: [
-        "https://randomuser.me/api/?results=10"
+        cors + "https://randomuser.me/api/?results=10"
       ]
     },
     sad: {
       name: "Trivia API", 
       urls: [
-        "https://opentdb.com/api.php?amount=10&type=multiple"
+        cors + "https://opentdb.com/api.php?amount=10&type=multiple"
       ]
     },
     angry: {
       name: "Rest Countries API",
       urls: [
-        "https://restcountries.com/v3.1/all?fields=name,population,region"
+        cors + "https://restcountries.com/v3.1/all?fields=name,population,region"
       ]
     },
     focus: {
       name: "Pokemon API",
       urls: [
-        "https://pokeapi.co/api/v2/pokemon?limit=10"
+        cors + "https://pokeapi.co/api/v2/pokemon?limit=10"
       ]
     }
   };
