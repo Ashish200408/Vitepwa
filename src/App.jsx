@@ -17,7 +17,7 @@ function App() {
     focus: "technology",
   };
 
-  // 📲 Capture install event
+  // ✅ Install event
   useEffect(() => {
     const handler = (e) => {
       e.preventDefault();
@@ -26,12 +26,10 @@ function App() {
 
     window.addEventListener("beforeinstallprompt", handler);
 
-    return () => {
-      window.removeEventListener("beforeinstallprompt", handler);
-    };
+    return () => window.removeEventListener("beforeinstallprompt", handler);
   }, []);
 
-  // 📰 Fetch news
+  // ✅ Fetch news + fallback
   useEffect(() => {
     const fetchNews = async () => {
       setLoading(true);
@@ -45,9 +43,7 @@ function App() {
 
         const data = await res.json();
 
-        if (!data.news) {
-          setArticles([]);
-        } else {
+        if (data.news && data.news.length > 0) {
           const formatted = data.news.slice(0, 10).map((item) => ({
             title: item.title,
             description: item.description,
@@ -56,10 +52,29 @@ function App() {
           }));
 
           setArticles(formatted);
+        } else {
+          // 🔥 fallback (never empty UI)
+          setArticles([
+            {
+              title: "No live news available",
+              description: "Showing fallback content",
+              image: "",
+              url: "#",
+            },
+          ]);
         }
       } catch (error) {
-        console.log("ERROR:", error);
-        setArticles([]);
+        console.log("API ERROR:", error);
+
+        // 🔥 fallback
+        setArticles([
+          {
+            title: "Error loading news",
+            description: "Check API key or internet",
+            image: "",
+            url: "#",
+          },
+        ]);
       } finally {
         setLoading(false);
       }
@@ -73,12 +88,9 @@ function App() {
     setSearch("");
   };
 
-  // 📲 Install handler
+  // ✅ Install handler
   const handleInstall = async () => {
-    if (!deferredPrompt) {
-      alert("Install not ready. Try refresh or incognito.");
-      return;
-    }
+    if (!deferredPrompt) return;
 
     deferredPrompt.prompt();
     await deferredPrompt.userChoice;
@@ -89,10 +101,12 @@ function App() {
     <div className="container">
       <h1>🧠 Mood News App</h1>
 
-      {/* Install Button */}
-      <button className="install-btn" onClick={handleInstall}>
-        📲 Install App
-      </button>
+      {/* ✅ Show only when available */}
+      {deferredPrompt && (
+        <button className="install-btn" onClick={handleInstall}>
+          📲 Install App
+        </button>
+      )}
 
       {/* Search */}
       <input
@@ -103,62 +117,40 @@ function App() {
         onChange={(e) => setSearch(e.target.value)}
       />
 
-      {/* Mood Buttons */}
+      {/* Mood */}
       <div className="moods">
-        <button
-          className={activeMood === "happy" ? "active" : ""}
-          onClick={() => handleMood("happy")}
-        >
-          happy
-        </button>
-
-        <button
-          className={activeMood === "sad" ? "active" : ""}
-          onClick={() => handleMood("sad")}
-        >
-          sad
-        </button>
-
-        <button
-          className={activeMood === "angry" ? "active" : ""}
-          onClick={() => handleMood("angry")}
-        >
-          angry
-        </button>
-
-        <button
-          className={activeMood === "focus" ? "active" : ""}
-          onClick={() => handleMood("focus")}
-        >
-          focus
-        </button>
+        {["happy", "sad", "angry", "focus"].map((mood) => (
+          <button
+            key={mood}
+            className={activeMood === mood ? "active" : ""}
+            onClick={() => handleMood(mood)}
+          >
+            {mood}
+          </button>
+        ))}
       </div>
 
       {/* Loading */}
-      {loading && <p className="loading">Loading...</p>}
+      {loading && <p>Loading...</p>}
 
       {/* News */}
       <div className="grid">
-        {!loading && articles.length === 0 ? (
-          <p>No news found</p>
-        ) : (
-          articles.map((item, index) => (
-            <div className="card" key={index}>
-              <img
-                src={
-                  item.image ||
-                  "https://via.placeholder.com/300x200?text=No+Image"
-                }
-                alt="news"
-              />
-              <h3>{item.title}</h3>
-              <p>{item.description}</p>
-              <a href={item.url} target="_blank" rel="noreferrer">
-                Read More →
-              </a>
-            </div>
-          ))
-        )}
+        {articles.map((item, index) => (
+          <div className="card" key={index}>
+            <img
+              src={
+                item.image ||
+                "https://via.placeholder.com/300x200?text=No+Image"
+              }
+              alt="news"
+            />
+            <h3>{item.title}</h3>
+            <p>{item.description}</p>
+            <a href={item.url} target="_blank" rel="noreferrer">
+              Read More →
+            </a>
+          </div>
+        ))}
       </div>
     </div>
   );
