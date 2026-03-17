@@ -3,11 +3,16 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  base: '/', 
+
   plugins: [
     react(),
+
     VitePWA({
       registerType: 'autoUpdate',
+
       includeAssets: ['favicon.ico'],
+
       manifest: {
         name: 'Mood News App',
         short_name: 'MoodNews',
@@ -16,6 +21,7 @@ export default defineConfig({
         background_color: '#020617',
         display: 'standalone',
         start_url: '/',
+
         icons: [
           {
             src: '/icon-192.png',
