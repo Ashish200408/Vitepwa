@@ -11,7 +11,7 @@ function App() {
   const [error, setError] = useState(null);
 
   // API Key for CurrentsAPI only
-  const CURRENTS_API_KEY = "gl7JoUc199uxMVp8rIZcZ8rxD3tjrBGAiL_NUyUJ_isIUBr5";
+  const CURRENTS_API_KEY = "XQ3PCAtpkQ68jJO8xHcPAa0lfe2WXIU_g-4SQHykEbTQSWWO";
 
   // Mood-to-keywords mapping
   const moodMap = {
