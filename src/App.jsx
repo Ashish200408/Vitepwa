@@ -58,7 +58,7 @@ function App() {
         // Try NewsAPI.org (most reliable)
         try {
           console.log("📡 Fetching from NewsAPI...");
-          const newsApiUrl = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&sortBy=publishedAt&language=en&pageSize=20&apiKey=4fe5fbe73bc84bf2b6a3f96b3a9879e5`;
+          const newsApiUrl = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&sortBy=publishedAt&language=en&pageSize=30&apiKey=4fe5fbe73bc84bf2b6a3f96b3a9879e5`;
 
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 8000);
@@ -74,11 +74,16 @@ function App() {
 
           if (data.articles && Array.isArray(data.articles) && data.articles.length > 0) {
             const formatted = data.articles
-              .filter(item => item.title && item.description && item.urlToImage && item.title !== "[Removed]")
+              .filter(item => {
+                // Must have title, description, and a valid image URL
+                const hasImage = item.urlToImage && (item.urlToImage.startsWith('http') || item.urlToImage.startsWith('https'));
+                const hasContent = item.title && item.description && item.title !== "[Removed]";
+                return hasImage && hasContent;
+              })
               .slice(0, 10)
               .map((item) => ({
                 title: item.title,
-                description: item.description,
+                description: item.description.substring(0, 150),
                 image: item.urlToImage,
                 url: item.url,
               }));
@@ -250,7 +255,14 @@ function App() {
           <div className="grid">
             {articles.map((item, index) => (
               <div className="card" key={index}>
-                <img src={item.image} alt="news" />
+                <img 
+                  src={item.image} 
+                  alt={item.title}
+                  onError={(e) => {
+                    e.target.src = "https://via.placeholder.com/400x300?text=News+Story";
+                  }}
+                  style={{ objectFit: "cover", width: "100%", height: "200px" }}
+                />
                 <h3>{item.title}</h3>
                 <p>{item.description}</p>
                 <a href={item.url} target="_blank" rel="noreferrer">
