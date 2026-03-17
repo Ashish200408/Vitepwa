@@ -10,32 +10,32 @@ function App() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [error, setError] = useState(null);
 
-  // Different API keys for different moods - using free tier APIs
+  // Different API providers for different moods - using free tier APIs that work
   const APIs = {
     happy: {
-      name: "GNews API",
-      url: (query) => `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&lang=en&max=15&apikey=f923b91f7d0b35b1bb2d4f07d1e3c5a7`
+      name: "NewsAPI - Positive",
+      url: (query) => `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&sortBy=publishedAt&language=en&pageSize=25&apiKey=4fe5fbe73bc84bf2b6a3f96b3a9879e5`
     },
     sad: {
-      name: "NewsData.io",
-      url: (query) => `https://newsdata.io/api/1/news?q=${encodeURIComponent(query)}&language=en&apikey=pub_47b2c4cf89db3d7821d5af84b33942d1b3c3e`
+      name: "NewsAPI - Wellness",
+      url: (query) => `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&sortBy=popularity&language=en&pageSize=25&apiKey=4fe5fbe73bc84bf2b6a3f96b3a9879e5`
     },
     angry: {
-      name: "NewsAPI",
-      url: (query) => `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&sortBy=publishedAt&language=en&pageSize=20&apiKey=4fe5fbe73bc84bf2b6a3f96b3a9879e5`
+      name: "NewsAPI - Justice",
+      url: (query) => `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&sortBy=publishedAt&language=en&pageSize=25&apiKey=4fe5fbe73bc84bf2b6a3f96b3a9879e5`
     },
     focus: {
-      name: "NewsAPI (Top Headlines)",
-      url: (query) => `https://newsapi.org/v2/top-headlines?q=${encodeURIComponent(query)}&language=en&pageSize=20&apiKey=4fe5fbe73bc84bf2b6a3f96b3a9879e5`
+      name: "NewsAPI - Tech",
+      url: (query) => `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&sortBy=publishedAt&language=en&pageSize=25&apiKey=4fe5fbe73bc84bf2b6a3f96b3a9879e5`
     }
   };
 
-  // Mood-to-keywords mapping (very distinct)
+  // Mood-to-keywords mapping (very distinct search terms)
   const moodMap = {
-    happy: "happy inspiring celebration award achievement",
+    happy: "happy inspiring celebration achievement award",
     sad: "mental health depression wellness therapy support",
-    angry: "protest strike labor rights corruption",
-    focus: "artificial intelligence programming coding developer",
+    angry: "protest strike labor rights corruption scandal",
+    focus: "artificial intelligence technology programming developer",
   };
 
   // Mood descriptions
@@ -58,37 +58,26 @@ function App() {
     return () => window.removeEventListener("beforeinstallprompt", handler);
   }, []);
 
-  // Parse different API responses based on source
+  // Parse NewsAPI response
   const parseApiResponse = useCallback((data, apiName) => {
     let articles = [];
 
-    if (apiName === "GNews API" && data.articles) {
-      articles = data.articles.map(item => ({
-        title: item.title,
-        description: item.description || "Read full article",
-        image: item.image || "https://via.placeholder.com/400x300?text=News",
-        url: item.url,
-      }));
-    } else if (apiName === "NewsData.io" && data.results) {
-      articles = data.results.map(item => ({
-        title: item.title,
-        description: item.description || "Read full article",
-        image: item.image_url || "https://via.placeholder.com/400x300?text=News",
-        url: item.link,
-      }));
-    } else if ((apiName === "NewsAPI" || apiName === "NewsAPI (Top Headlines)") && data.articles) {
-      articles = data.articles.map(item => ({
-        title: item.title,
-        description: item.description || "Read full article",
-        image: item.urlToImage || "https://via.placeholder.com/400x300?text=News",
-        url: item.url,
-      }));
+    // All APIs now use NewsAPI format
+    if (data.articles && Array.isArray(data.articles)) {
+      articles = data.articles
+        .filter(item => item.title && item.description && item.urlToImage)
+        .map(item => ({
+          title: item.title,
+          description: item.description,
+          image: item.urlToImage,
+          url: item.url,
+        }));
     }
 
     return articles;
   }, []);
 
-  // ✅ Fetch news based on mood using different APIs
+  // ✅ Fetch news based on mood using NewsAPI
   useEffect(() => {
     let isMounted = true;
 
@@ -109,13 +98,13 @@ function App() {
         const apiUrl = apiConfig.url(query);
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 12000);
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
 
         const res = await fetch(apiUrl, { signal: controller.signal });
         clearTimeout(timeoutId);
 
         if (!res.ok) {
-          throw new Error(`API Error: ${res.status}`);
+          throw new Error(`API Error: ${res.status} - ${res.statusText}`);
         }
 
         const data = await res.json();
@@ -135,34 +124,25 @@ function App() {
             .slice(0, 10)
             .map(item => ({
               ...item,
-              description: item.description.substring(0, 150)
+              description: item.description.substring(0, 160)
             }));
 
           if (validArticles.length > 0) {
             console.log(`✅ Loaded ${validArticles.length} articles from ${apiConfig.name}`);
             setArticles(validArticles);
           } else {
-            console.warn("⚠️ No valid articles found, trying with placeholder images...");
-            const allArticles = parsed
-              .filter(item => item.title && item.description)
-              .slice(0, 10)
-              .map(item => ({
-                ...item,
-                description: item.description.substring(0, 150),
-                image: item.image || "https://images.unsplash.com/photo-1495505442757-a1efb6729352?w=400&h=300&fit=crop"
-              }));
-            
-            if (allArticles.length > 0) {
-              setArticles(allArticles);
-            } else {
-              setError("No articles found. Please try another mood.");
-            }
+            console.warn("⚠️ No valid articles found");
+            setError("No articles found. Try a different mood or search term.");
           }
         }
       } catch (err) {
         console.error("❌ Error fetching news:", err.message);
         if (isMounted) {
-          setError(`Unable to fetch news: ${err.message}`);
+          if (err.name === "AbortError") {
+            setError("Request timeout. Please try again.");
+          } else {
+            setError(`Unable to fetch news: ${err.message}`);
+          }
         }
       } finally {
         if (isMounted) {
