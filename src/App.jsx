@@ -13,12 +13,12 @@ function App() {
   // API Key for CurrentsAPI only
   const CURRENTS_API_KEY = "XQ3PCAtpkQ68jJO8xHcPAa0lfe2WXIU_g-4SQHykEbTQSWWO";
 
-  // Mood-to-keywords mapping (IMPORTANT: Must be very specific for different results)
+  // Mood-to-keywords mapping (VERY specific to get different news)
   const moodMap = {
-    happy: "inspiring success motivation happiness achievement positive news good news",
-    sad: "wellness mental health support recovery healing comfort care therapy help",
-    angry: "justice activist reform equality rights change accountability politics activism",
-    focus: "technology innovation science research development breakthrough discovery tech learning",
+    happy: "good news inspiring stories children smile laughter celebration awards",
+    sad: "mental health depression support grief counseling therapy recovery wellness charity",
+    angry: "protest strike labor rights corruption crime lawsuit investigation accountability",
+    focus: "AI machine learning programming developer software coding tech startup innovation",
   };
 
   // Mood descriptions
@@ -43,6 +43,8 @@ function App() {
 
   // ✅ Fetch news from multiple reliable APIs with fallbacks
   useEffect(() => {
+    let isMounted = true;
+
     const fetchNews = async () => {
       setLoading(true);
       setError(null);
@@ -59,10 +61,10 @@ function App() {
         // Try NewsAPI.org (most reliable)
         try {
           console.log("📡 Fetching from NewsAPI...");
-          const newsApiUrl = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&sortBy=publishedAt&language=en&pageSize=30&apiKey=4fe5fbe73bc84bf2b6a3f96b3a9879e5`;
+          const newsApiUrl = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&sortBy=publishedAt&language=en&pageSize=40&apiKey=4fe5fbe73bc84bf2b6a3f96b3a9879e5`;
 
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 8000);
+          const timeoutId = setTimeout(() => controller.abort(), 10000);
 
           const res = await fetch(newsApiUrl, { signal: controller.signal });
           clearTimeout(timeoutId);
@@ -89,7 +91,7 @@ function App() {
                 url: item.url,
               }));
 
-            if (formatted.length > 0) {
+            if (formatted.length > 0 && isMounted) {
               console.log(`✅ Loaded ${formatted.length} articles from NewsAPI`);
               setArticles(formatted);
               setLoading(false);
@@ -101,92 +103,62 @@ function App() {
           console.warn("⚠️ NewsAPI failed:", newsApiError.message);
         }
 
-        // Fallback: Try Inshorts API (works well for general news)
+        // Fallback: Try Inshorts API
+        if (!isMounted) return;
         try {
-          console.log("📡 Trying Inshorts API...");
-          const insortsUrl = `https://inshortsapi.vercel.app/news?category=${query}`;
+          console.log("📡 Trying alternative source...");
+          const backupUrl = `https://newsapi.org/v2/top-headlines?q=${encodeURIComponent(query)}&language=en&pageSize=30&apiKey=4fe5fbe73bc84bf2b6a3f96b3a9879e5`;
 
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 8000);
+          const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-          const res = await fetch(insortsUrl, { signal: controller.signal });
+          const res = await fetch(backupUrl, { signal: controller.signal });
           clearTimeout(timeoutId);
 
           if (res.ok) {
             const data = await res.json();
 
-            if (data.data && Array.isArray(data.data) && data.data.length > 0) {
-              const formatted = data.data
-                .filter(item => item.title && item.content && item.imageUrl)
+            if (data.articles && Array.isArray(data.articles) && data.articles.length > 0) {
+              const formatted = data.articles
+                .filter(item => item.urlToImage && item.title && item.description)
                 .slice(0, 10)
                 .map((item) => ({
                   title: item.title,
-                  description: item.content,
-                  image: item.imageUrl,
-                  url: item.readMoreUrl || "#",
+                  description: item.description.substring(0, 150),
+                  image: item.urlToImage,
+                  url: item.url,
                 }));
 
-              if (formatted.length > 0) {
-                console.log(`✅ Loaded ${formatted.length} articles from Inshorts`);
+              if (formatted.length > 0 && isMounted) {
+                console.log(`✅ Loaded ${formatted.length} articles from Headlines API`);
                 setArticles(formatted);
                 setLoading(false);
                 return;
               }
             }
           }
-        } catch (inshortsError) {
-          console.warn("⚠️ Inshorts failed:", inshortsError.message);
+        } catch (backupError) {
+          console.warn("⚠️ Backup API failed:", backupError.message);
         }
 
-        // Third fallback: Generic news with CORS proxy
-        try {
-          console.log("📡 Trying alternative news source...");
-          const altUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://feeds.bloomberg.com/markets/news.rss`)}`;
-
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 8000);
-
-          const res = await fetch(altUrl, { signal: controller.signal });
-          clearTimeout(timeoutId);
-
-          if (res.ok) {
-            const xmlText = await res.text();
-            const parser = new DOMParser();
-            const xmlDoc = parser.parseFromString(xmlText, "text/xml");
-            const items = xmlDoc.querySelectorAll("item");
-
-            if (items.length > 0) {
-              const formatted = Array.from(items)
-                .slice(0, 10)
-                .map((item) => ({
-                  title: item.querySelector("title")?.textContent || "News",
-                  description: item.querySelector("description")?.textContent?.substring(0, 200) || "Read more...",
-                  image: "https://via.placeholder.com/400x300?text=News",
-                  url: item.querySelector("link")?.textContent || "#",
-                }));
-
-              if (formatted.length > 0) {
-                console.log(`✅ Loaded ${formatted.length} articles from RSS feed`);
-                setArticles(formatted);
-                setLoading(false);
-                return;
-              }
-            }
-          }
-        } catch (rssError) {
-          console.warn("⚠️ RSS feed failed:", rssError.message);
+        if (isMounted) {
+          setError("⚠️ Unable to fetch news. Please check your internet connection and try again.");
+          setLoading(false);
         }
-
-        setError("⚠️ Unable to fetch news. Please check your internet connection and try again.");
       } catch (err) {
         console.error("❌ Fatal error:", err.message);
-        setError(`Error: ${err.message}`);
-      } finally {
-        setLoading(false);
+        if (isMounted) {
+          setError(`Error: ${err.message}`);
+          setLoading(false);
+        }
       }
     };
 
     fetchNews();
+
+    return () => {
+      isMounted = false;
+    };
   }, [activeMood, search]);
 
   const handleMood = (mood) => {

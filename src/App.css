@@ -195,6 +195,23 @@ h1 {
   margin-bottom: 16px;
   transition: transform 0.4s ease;
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  background: rgba(30, 41, 59, 0.8);
+  display: block;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.card img[src] {
+  animation: imageLoad 0.3s ease-in;
+}
+
+@keyframes imageLoad {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .card:hover img {
