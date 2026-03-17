@@ -8,7 +8,7 @@ function App() {
   const [search, setSearch] = useState("");
   const [deferredPrompt, setDeferredPrompt] = useState(null);
 
-  // 🔑 PUT YOUR GNEWS API KEY HERE
+  // 🔑 PUT YOUR CURRENTS API KEY HERE
   const API_KEY = "J9hAUT4yrUWkynylExt9ZkRh0RQzjs1txRj68gmqFyOTTlHg";
 
   const moodMap = {
@@ -18,7 +18,7 @@ function App() {
     focus: "technology",
   };
 
-  // 📲 Capture install prompt
+  // 📲 Install button listener
   useEffect(() => {
     const handler = (e) => {
       e.preventDefault();
@@ -27,10 +27,11 @@ function App() {
 
     window.addEventListener("beforeinstallprompt", handler);
 
-    return () => window.removeEventListener("beforeinstallprompt", handler);
+    return () =>
+      window.removeEventListener("beforeinstallprompt", handler);
   }, []);
 
-  // 📰 Fetch news
+  // 📰 Fetch news (CURRENTS API)
   useEffect(() => {
     const fetchNews = async () => {
       setLoading(true);
@@ -39,17 +40,18 @@ function App() {
         const query = search || moodMap[activeMood] || "news";
 
         const res = await fetch(
-          `https://gnews.io/api/v4/search?q=${query}&lang=en&max=10&apikey=${API_KEY}`
+          `https://api.currentsapi.services/v1/search?keywords=${query}&apiKey=${API_KEY}`
         );
 
         const data = await res.json();
+        console.log("API DATA:", data); // 🔍 debug
 
-        if (!data.articles) {
+        if (!data.news) {
           setArticles([]);
           return;
         }
 
-        const formatted = data.articles.map((item) => ({
+        const formatted = data.news.slice(0, 10).map((item) => ({
           title: item.title,
           description: item.description,
           image: item.image,
@@ -84,14 +86,14 @@ function App() {
     <div className="container">
       <h1>🧠 Mood News App</h1>
 
-      {/* Install Button */}
+      {/* 📲 Install Button */}
       {deferredPrompt && (
         <button className="install-btn" onClick={handleInstall}>
           📲 Install App
         </button>
       )}
 
-      {/* Search */}
+      {/* 🔍 Search */}
       <input
         type="text"
         placeholder="Search news..."
@@ -100,7 +102,7 @@ function App() {
         onChange={(e) => setSearch(e.target.value)}
       />
 
-      {/* Mood Buttons */}
+      {/* 😊 Mood Buttons */}
       <div className="moods">
         {["happy", "sad", "angry", "focus"].map((mood) => (
           <button
@@ -113,10 +115,10 @@ function App() {
         ))}
       </div>
 
-      {/* Loading */}
+      {/* ⏳ Loading */}
       {loading && <p className="loading">Loading... ⏳</p>}
 
-      {/* News */}
+      {/* 📰 News */}
       <div className="grid">
         {!loading && articles.length === 0 ? (
           <p>No news found 😢</p>
