@@ -41,7 +41,7 @@ function App() {
     return () => window.removeEventListener("beforeinstallprompt", handler);
   }, []);
 
-  // ✅ Fetch news from CurrentsAPI only
+  // ✅ Fetch news from CurrentsAPI with NewsAPI fallback
   useEffect(() => {
     const fetchNews = async () => {
       setLoading(true);
@@ -55,40 +55,74 @@ function App() {
         console.log(`🔄 Fetching news for: ${moodLabel}`);
         console.log(`🔍 Keywords: ${query}`);
 
-        // Fetch from CurrentsAPI
-        const currentsUrl = `https://api.currentsapi.services/v1/search?keywords=${encodeURIComponent(query)}&apiKey=${CURRENTS_API_KEY}`;
+        // Try CurrentsAPI first
+        try {
+          console.log("📡 Trying CurrentsAPI...");
+          const currentsUrl = `https://api.currentsapi.services/v1/search?keywords=${encodeURIComponent(query)}&apiKey=${CURRENTS_API_KEY}`;
 
-        const res = await fetch(currentsUrl);
+          const res = await fetch(currentsUrl);
+
+          if (!res.ok) {
+            throw new Error(`CurrentsAPI Error: ${res.status}`);
+          }
+
+          const data = await res.json();
+
+          if (data.news && Array.isArray(data.news) && data.news.length > 0) {
+            const formatted = data.news
+              .filter(item => item.title && item.description)
+              .slice(0, 10)
+              .map((item) => ({
+                title: item.title,
+                description: item.description || "Read full article for more details",
+                image: item.image || "https://via.placeholder.com/400x300?text=No+Image",
+                url: item.url || "#",
+              }));
+
+            if (formatted.length > 0) {
+              console.log(`✅ Loaded ${formatted.length} articles from CurrentsAPI`);
+              setArticles(formatted);
+              return;
+            }
+          }
+        } catch (currentsError) {
+          console.warn("⚠️ CurrentsAPI failed:", currentsError.message);
+        }
+
+        // Fallback to NewsAPI
+        console.log("📡 Falling back to NewsAPI...");
+        const newsApiUrl = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&sortBy=publishedAt&language=en&pageSize=15&apiKey=4fe5fbe73bc84bf2b6a3f96b3a9879e5`;
+
+        const res = await fetch(newsApiUrl);
 
         if (!res.ok) {
-          throw new Error(`API Error: ${res.status}`);
+          throw new Error(`NewsAPI Error: ${res.status}`);
         }
 
         const data = await res.json();
 
-        if (data.news && Array.isArray(data.news) && data.news.length > 0) {
-          const formatted = data.news
-            .filter(item => item.title && item.description)
+        if (data.articles && Array.isArray(data.articles) && data.articles.length > 0) {
+          const formatted = data.articles
+            .filter(item => item.urlToImage && item.title && item.description)
             .slice(0, 10)
             .map((item) => ({
               title: item.title,
               description: item.description || "Read full article for more details",
-              image: item.image || "https://via.placeholder.com/400x300?text=No+Image",
+              image: item.urlToImage,
               url: item.url || "#",
             }));
 
           if (formatted.length > 0) {
-            console.log(`✅ Loaded ${formatted.length} articles from CurrentsAPI`);
+            console.log(`✅ Loaded ${formatted.length} articles from NewsAPI`);
             setArticles(formatted);
-          } else {
-            setError("No articles found with valid content");
+            return;
           }
-        } else {
-          setError("No news available for this search");
         }
+
+        setError("No articles found. Try a different search or mood.");
       } catch (err) {
         console.error("❌ Error fetching news:", err.message);
-        setError(`Error: ${err.message}. Please check your API key or internet connection.`);
+        setError(`Error: ${err.message}. Please try again.`);
       } finally {
         setLoading(false);
       }
