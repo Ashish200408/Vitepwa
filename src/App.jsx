@@ -13,20 +13,20 @@ function App() {
   // API Key for CurrentsAPI only
   const CURRENTS_API_KEY = "XQ3PCAtpkQ68jJO8xHcPAa0lfe2WXIU_g-4SQHykEbTQSWWO";
 
-  // Mood-to-keywords mapping
+  // Mood-to-keywords mapping (IMPORTANT: Must be very specific for different results)
   const moodMap = {
-    happy: "success achievement inspiration",
-    sad: "health wellness support",
-    angry: "justice reform politics",
-    focus: "technology science innovation",
+    happy: "inspiring success motivation happiness achievement positive news good news",
+    sad: "wellness mental health support recovery healing comfort care therapy help",
+    angry: "justice activist reform equality rights change accountability politics activism",
+    focus: "technology innovation science research development breakthrough discovery tech learning",
   };
 
   // Mood descriptions
   const moodDescriptions = {
-    happy: "😊 Inspirational & Success News",
-    sad: "💚 Wellness & Support News",
-    angry: "⚖️ Justice & Reform News",
-    focus: "🔬 Technology & Science News"
+    happy: "😊 Happy - Inspiring & Positive News",
+    sad: "💚 Sad - Wellness & Mental Health News",
+    angry: "⚖️ Angry - Justice & Reform News",
+    focus: "🔬 Focus - Technology & Science News"
   };
 
   // ✅ Install event
@@ -53,7 +53,8 @@ function App() {
         const moodLabel = moodDescriptions[activeMood];
 
         console.log(`🔄 Fetching news for: ${moodLabel}`);
-        console.log(`🔍 Keywords: ${query}`);
+        console.log(`🔍 Search Query: "${query}"`);
+        console.log(`😊 Active Mood: ${activeMood.toUpperCase()}`);
 
         // Try NewsAPI.org (most reliable)
         try {
@@ -231,11 +232,19 @@ function App() {
               key={mood}
               className={activeMood === mood ? "active" : ""}
               onClick={() => handleMood(mood)}
+              title={moodDescriptions[mood]}
             >
               {mood}
             </button>
           ))}
         </div>
+
+        {/* Show current mood being displayed */}
+        {!search && (
+          <p style={{ color: "#38bdf8", fontSize: "0.9rem", marginTop: "15px" }}>
+            📰 {moodDescriptions[activeMood]}
+          </p>
+        )}
 
         {/* Loading State */}
         {loading && <p className="loading">Loading news...</p>}
