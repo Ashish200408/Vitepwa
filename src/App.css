@@ -85,3 +85,30 @@ h1 {
   font-size: 18px;
   color: #38bdf8;
 }
+
+/* Install Button */
+.install-btn {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #38bdf8, #0ea5e9);
+  color: black;
+  border: none;
+  border-radius: 25px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(56, 189, 248, 0.4);
+  transition: all 0.3s ease;
+  z-index: 1000;
+}
+
+.install-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(56, 189, 248, 0.6);
+}
+
+.install-btn:active {
+  transform: translateY(0);
+}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import "./App.css";
+import PWABadge from "./PWABadge";
 
 function App() {
   const [articles, setArticles] = useState([]);
@@ -36,12 +37,15 @@ function App() {
 
       try {
         const query = search || moodMap[activeMood] || "news";
+        const apiUrl = `https://api.currentsapi.services/v1/search?keywords=${query}&apiKey=${API_KEY}`;
+        
+        console.log("📰 Fetching news for:", query);
+        console.log("🔗 API URL:", apiUrl);
 
-        const res = await fetch(
-          `https://api.currentsapi.services/v1/search?keywords=${query}&apiKey=${API_KEY}`
-        );
-
+        const res = await fetch(apiUrl);
         const data = await res.json();
+
+        console.log("📊 API Response:", data);
 
         if (data.news && data.news.length > 0) {
           const formatted = data.news.slice(0, 10).map((item) => ({
@@ -51,26 +55,28 @@ function App() {
             url: item.url,
           }));
 
+          console.log("✅ Articles loaded:", formatted.length);
           setArticles(formatted);
         } else {
+          console.warn("⚠️ No news found in response");
           // 🔥 fallback (never empty UI)
           setArticles([
             {
               title: "No live news available",
-              description: "Showing fallback content",
+              description: "Showing fallback content - " + (data.error || "No data received"),
               image: "",
               url: "#",
             },
           ]);
         }
       } catch (error) {
-        console.log("API ERROR:", error);
+        console.error("❌ API ERROR:", error.message);
 
         // 🔥 fallback
         setArticles([
           {
             title: "Error loading news",
-            description: "Check API key or internet",
+            description: error.message || "Check API key or internet connection",
             image: "",
             url: "#",
           },
@@ -98,8 +104,10 @@ function App() {
   };
 
   return (
-    <div className="container">
-      <h1>🧠 Mood News App</h1>
+    <>
+      <PWABadge />
+      <div className="container">
+        <h1>🧠 Mood News App</h1>
 
       {/* ✅ Show only when available */}
       {deferredPrompt && (
@@ -153,6 +161,7 @@ function App() {
         ))}
       </div>
     </div>
+    </>
   );
 }
 
