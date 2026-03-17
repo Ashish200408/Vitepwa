@@ -5,10 +5,13 @@ function App() {
   const [articles, setArticles] = useState([]);
   const [category, setCategory] = useState("general");
   const [loading, setLoading] = useState(false);
-  const [activeMood, setActiveMood] = useState("general");
+  const [activeMood, setActiveMood] = useState("happy");
   const [search, setSearch] = useState("");
 
-  const API_KEY = "d0a340b809b77c76ca20ea2e5474569f";
+  
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+
+  const API_KEY = "d0a340b809b77c76ca20ea2e5474569f"; 
 
   const moodMap = {
     happy: "entertainment",
@@ -17,15 +20,36 @@ function App() {
     focus: "technology",
   };
 
+  // ✅ PWA install listener
+  useEffect(() => {
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    });
+  }, []);
+
+  // ✅ Fetch news (SAFE VERSION)
   useEffect(() => {
     setLoading(true);
 
     fetch(
-      `https://gnews.io/api/v4/search?q=${search || category}&country=in&apikey=${API_KEY}`
+      `https://gnews.io/api/v4/search?q=${
+        search || category
+      }&country=in&apikey=${API_KEY}`
     )
       .then((res) => res.json())
       .then((data) => {
-        setArticles(data.articles || []);
+        if (data.articles) {
+          setArticles(data.articles);
+        } else {
+          console.log("API issue:", data);
+          setArticles([]);
+        }
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.log("Fetch error:", err);
+        setArticles([]);
         setLoading(false);
       });
   }, [category, search]);
@@ -40,6 +64,23 @@ function App() {
     <div className="container">
       <h1>🧠 Mood News App</h1>
 
+      {/* 🔥 Install Button */}
+      {deferredPrompt && (
+        <button
+          onClick={() => deferredPrompt.prompt()}
+          style={{
+            padding: "10px 15px",
+            background: "#38bdf8",
+            border: "none",
+            borderRadius: "10px",
+            marginBottom: "10px",
+            cursor: "pointer",
+          }}
+        >
+          📲 Install App
+        </button>
+      )}
+
       {/* 🔍 Search */}
       <input
         type="text"
@@ -49,7 +90,7 @@ function App() {
         onChange={(e) => setSearch(e.target.value)}
       />
 
-      {/* Mood Buttons */}
+      {/* 😊 Mood Buttons */}
       <div className="moods">
         <button
           className={activeMood === "happy" ? "active" : ""}
@@ -77,10 +118,10 @@ function App() {
         </button>
       </div>
 
-      {/* Loading */}
+      {/* ⏳ Loading */}
       {loading && <p className="loading">Loading... ⏳</p>}
 
-      {/* News */}
+      {/* 📰 News */}
       <div className="grid">
         {!loading && articles.length === 0 ? (
           <p>No news found 😢</p>
@@ -92,10 +133,11 @@ function App() {
                   item.image ||
                   "https://via.placeholder.com/300x200?text=No+Image"
                 }
+                alt="news"
               />
               <h3>{item.title}</h3>
               <p>{item.description}</p>
-              <a href={item.url} target="_blank">
+              <a href={item.url} target="_blank" rel="noreferrer">
                 Read More →
               </a>
             </div>
