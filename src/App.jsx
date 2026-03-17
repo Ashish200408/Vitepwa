@@ -11,10 +11,10 @@ function App() {
 
   // Better mood-to-keywords mapping for more relevant news
   const moodMap = {
-    happy: "inspirational success motivation achievement",
-    sad: "wellness support compassion recovery",
-    angry: "justice reform accountability activism",
-    focus: "technology science innovation discovery",
+    happy: "success achievement inspiration motivation",
+    sad: "mental health wellness recovery support",
+    angry: "justice reform politics activism",
+    focus: "technology science innovation research",
   };
 
   // Mood-specific descriptions
@@ -302,21 +302,26 @@ function App() {
         console.log(`🔄 REAL-TIME FETCH: ${moodLabel}`);
         console.log(`🔍 Query: ${query}`);
 
-        // Try NewsAPI first (most reliable)
+        // Try NewsAPI - optimized for mood-based queries
         try {
-          const newsApiUrl = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&sortBy=publishedAt&language=en&pageSize=10&apiKey=4fe5fbe73bc84bf2b6a3f96b3a9879e5`;
+          const newsApiUrl = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&sortBy=publishedAt&language=en&pageSize=15&apiKey=4fe5fbe73bc84bf2b6a3f96b3a9879e5`;
           console.log("📡 Fetching from NewsAPI...");
           
           const res = await fetch(newsApiUrl);
+          
+          if (!res.ok) {
+            throw new Error(`NewsAPI responded with status ${res.status}`);
+          }
+          
           const data = await res.json();
 
-          if (data.articles && data.articles.length > 0) {
+          if (data.articles && Array.isArray(data.articles) && data.articles.length > 0) {
             const formatted = data.articles
-              .filter(item => item.urlToImage && item.title && item.description)
+              .filter(item => item.urlToImage && item.title && item.description && item.title !== "[Removed]")
               .slice(0, 10)
               .map((item) => ({
                 title: item.title,
-                description: item.description || "Read more for details",
+                description: item.description || "Read full article for more details",
                 image: item.urlToImage,
                 url: item.url || "#",
               }));
@@ -326,40 +331,14 @@ function App() {
               setArticles(formatted);
               setLoading(false);
               return;
+            } else {
+              console.warn("⚠️ Articles found but none had valid images/descriptions");
             }
+          } else {
+            console.warn("⚠️ No articles returned from NewsAPI");
           }
         } catch (newsApiError) {
-          console.warn("⚠️ NewsAPI slow/blocked, trying GNews...");
-        }
-
-        // Try GNews API as backup
-        try {
-          const gNewsUrl = `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&lang=en&max=10`;
-          console.log("📡 Trying GNews API...");
-          
-          const res = await fetch(gNewsUrl);
-          const data = await res.json();
-
-          if (data.articles && data.articles.length > 0) {
-            const formatted = data.articles
-              .filter(item => item.title)
-              .slice(0, 10)
-              .map((item) => ({
-                title: item.title,
-                description: item.description || "Click read more for full story",
-                image: item.image || "https://images.unsplash.com/photo-1585776245865-c172fedac882?w=400&h=300&fit=crop",
-                url: item.url || "#",
-              }));
-
-            if (formatted.length > 0) {
-              console.log(`✅ Loaded ${formatted.length} articles from GNews for "${activeMood}"`);
-              setArticles(formatted);
-              setLoading(false);
-              return;
-            }
-          }
-        } catch (gNewsError) {
-          console.warn("⚠️ GNews failed, using mood-specific sample data...");
+          console.warn("⚠️ NewsAPI error:", newsApiError.message);
         }
 
         // Fallback: Use mood-specific sample news
