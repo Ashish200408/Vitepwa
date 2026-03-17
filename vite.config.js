@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
-  base: './', 
+  base: '/',  // ✅ FIXED
 
   plugins: [
     react(),
@@ -14,6 +14,8 @@ export default defineConfig({
       includeAssets: ['favicon.ico'],
 
       manifest: {
+        id: '/',                
+        scope: '/',             
         name: 'Mood News App',
         short_name: 'MoodNews',
         description: 'Mood based news app',

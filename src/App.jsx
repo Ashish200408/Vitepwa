@@ -6,62 +6,66 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [activeMood, setActiveMood] = useState("happy");
   const [search, setSearch] = useState("");
-
-  // 📲 Install button
   const [deferredPrompt, setDeferredPrompt] = useState(null);
 
-  // Mood mapping (used as keywords)
+  // 🔑 PUT YOUR GNEWS API KEY HERE
+  const API_KEY = "J9hAUT4yrUWkynylExt9ZkRh0RQzjs1txRj68gmqFyOTTlHg";
+
   const moodMap = {
-    happy: "space",
-    sad: "mars",
-    angry: "rocket",
-    focus: "nasa",
+    happy: "positive",
+    sad: "world",
+    angry: "politics",
+    focus: "technology",
   };
 
-  // ✅ PWA install listener
+  // 📲 Capture install prompt
   useEffect(() => {
-    window.addEventListener("beforeinstallprompt", (e) => {
+    const handler = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
-    });
+    };
+
+    window.addEventListener("beforeinstallprompt", handler);
+
+    return () => window.removeEventListener("beforeinstallprompt", handler);
   }, []);
 
-  // ✅ Fetch news (WORKS EVERYWHERE)
+  // 📰 Fetch news
   useEffect(() => {
-    setLoading(true);
+    const fetchNews = async () => {
+      setLoading(true);
 
-    fetch("https://api.spaceflightnewsapi.net/v3/articles")
-      .then((res) => res.json())
-      .then((data) => {
-        let filtered = data;
+      try {
+        const query = search || moodMap[activeMood] || "news";
 
-        // 🔍 Filter by mood/search
-        if (search) {
-          filtered = data.filter((item) =>
-            item.title.toLowerCase().includes(search.toLowerCase())
-          );
-        } else {
-          const keyword = moodMap[activeMood];
-          filtered = data.filter((item) =>
-            item.title.toLowerCase().includes(keyword)
-          );
+        const res = await fetch(
+          `https://gnews.io/api/v4/search?q=${query}&lang=en&max=10&apikey=${API_KEY}`
+        );
+
+        const data = await res.json();
+
+        if (!data.articles) {
+          setArticles([]);
+          return;
         }
 
-        const formatted = filtered.slice(0, 10).map((item) => ({
+        const formatted = data.articles.map((item) => ({
           title: item.title,
-          description: item.summary,
-          image: item.imageUrl,
+          description: item.description,
+          image: item.image,
           url: item.url,
         }));
 
         setArticles(formatted);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.log(err);
+      } catch (error) {
+        console.log("ERROR:", error);
         setArticles([]);
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+
+    fetchNews();
   }, [activeMood, search]);
 
   const handleMood = (mood) => {
@@ -69,28 +73,25 @@ function App() {
     setSearch("");
   };
 
+  const handleInstall = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    setDeferredPrompt(null);
+  };
+
   return (
     <div className="container">
       <h1>🧠 Mood News App</h1>
 
-      {/* 📲 Install Button */}
+      {/* Install Button */}
       {deferredPrompt && (
-        <button
-          onClick={() => deferredPrompt.prompt()}
-          style={{
-            padding: "10px 15px",
-            background: "#38bdf8",
-            border: "none",
-            borderRadius: "10px",
-            marginBottom: "10px",
-            cursor: "pointer",
-          }}
-        >
+        <button className="install-btn" onClick={handleInstall}>
           📲 Install App
         </button>
       )}
 
-      {/* 🔍 Search */}
+      {/* Search */}
       <input
         type="text"
         placeholder="Search news..."
@@ -99,38 +100,23 @@ function App() {
         onChange={(e) => setSearch(e.target.value)}
       />
 
-      {/* 😊 Mood Buttons */}
+      {/* Mood Buttons */}
       <div className="moods">
-        <button
-          className={activeMood === "happy" ? "active" : ""}
-          onClick={() => handleMood("happy")}
-        >
-          😊 Happy
-        </button>
-        <button
-          className={activeMood === "sad" ? "active" : ""}
-          onClick={() => handleMood("sad")}
-        >
-          😢 Sad
-        </button>
-        <button
-          className={activeMood === "angry" ? "active" : ""}
-          onClick={() => handleMood("angry")}
-        >
-          😠 Angry
-        </button>
-        <button
-          className={activeMood === "focus" ? "active" : ""}
-          onClick={() => handleMood("focus")}
-        >
-          🧠 Focus
-        </button>
+        {["happy", "sad", "angry", "focus"].map((mood) => (
+          <button
+            key={mood}
+            className={activeMood === mood ? "active" : ""}
+            onClick={() => handleMood(mood)}
+          >
+            {mood}
+          </button>
+        ))}
       </div>
 
-      {/* ⏳ Loading */}
+      {/* Loading */}
       {loading && <p className="loading">Loading... ⏳</p>}
 
-      {/* 📰 News */}
+      {/* News */}
       <div className="grid">
         {!loading && articles.length === 0 ? (
           <p>No news found 😢</p>
