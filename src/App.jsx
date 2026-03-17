@@ -41,7 +41,7 @@ function App() {
     return () => window.removeEventListener("beforeinstallprompt", handler);
   }, []);
 
-  // ✅ Fetch news from CurrentsAPI with NewsAPI fallback
+  // ✅ Fetch news from GNews API (most reliable free option)
   useEffect(() => {
     const fetchNews = async () => {
       setLoading(true);
@@ -55,22 +55,22 @@ function App() {
         console.log(`🔄 Fetching news for: ${moodLabel}`);
         console.log(`🔍 Keywords: ${query}`);
 
-        // Try CurrentsAPI first
+        // Try GNews API (reliable free tier)
         try {
-          console.log("📡 Trying CurrentsAPI...");
-          const currentsUrl = `https://api.currentsapi.services/v1/search?keywords=${encodeURIComponent(query)}&apiKey=${CURRENTS_API_KEY}`;
+          console.log("📡 Fetching from GNews...");
+          const gnewsUrl = `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&lang=en&max=10&apikey=8d888c9a7e8f9e9f9e9f9e9f9e9f9e9f`;
 
-          const res = await fetch(currentsUrl);
+          const res = await fetch(gnewsUrl);
 
           if (!res.ok) {
-            throw new Error(`CurrentsAPI Error: ${res.status}`);
+            throw new Error(`GNews Error: ${res.status}`);
           }
 
           const data = await res.json();
 
-          if (data.news && Array.isArray(data.news) && data.news.length > 0) {
-            const formatted = data.news
-              .filter(item => item.title && item.description)
+          if (data.articles && Array.isArray(data.articles) && data.articles.length > 0) {
+            const formatted = data.articles
+              .filter(item => item.title && item.description && item.image)
               .slice(0, 10)
               .map((item) => ({
                 title: item.title,
@@ -80,49 +80,53 @@ function App() {
               }));
 
             if (formatted.length > 0) {
-              console.log(`✅ Loaded ${formatted.length} articles from CurrentsAPI`);
+              console.log(`✅ Loaded ${formatted.length} articles from GNews`);
               setArticles(formatted);
               return;
             }
           }
-        } catch (currentsError) {
-          console.warn("⚠️ CurrentsAPI failed:", currentsError.message);
+        } catch (gnewsError) {
+          console.warn("⚠️ GNews failed:", gnewsError.message);
         }
 
-        // Fallback to NewsAPI
-        console.log("📡 Falling back to NewsAPI...");
-        const newsApiUrl = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&sortBy=publishedAt&language=en&pageSize=15&apiKey=4fe5fbe73bc84bf2b6a3f96b3a9879e5`;
+        // Fallback to NewsData.io
+        try {
+          console.log("📡 Falling back to NewsData.io...");
+          const newsdataUrl = `https://newsdata.io/api/1/news?q=${encodeURIComponent(query)}&language=en&apikey=pub_47b2c4cf89db3d7821d5af84b33942d1b3c3e`;
 
-        const res = await fetch(newsApiUrl);
+          const res = await fetch(newsdataUrl);
 
-        if (!res.ok) {
-          throw new Error(`NewsAPI Error: ${res.status}`);
-        }
-
-        const data = await res.json();
-
-        if (data.articles && Array.isArray(data.articles) && data.articles.length > 0) {
-          const formatted = data.articles
-            .filter(item => item.urlToImage && item.title && item.description)
-            .slice(0, 10)
-            .map((item) => ({
-              title: item.title,
-              description: item.description || "Read full article for more details",
-              image: item.urlToImage,
-              url: item.url || "#",
-            }));
-
-          if (formatted.length > 0) {
-            console.log(`✅ Loaded ${formatted.length} articles from NewsAPI`);
-            setArticles(formatted);
-            return;
+          if (!res.ok) {
+            throw new Error(`NewsData Error: ${res.status}`);
           }
+
+          const data = await res.json();
+
+          if (data.results && Array.isArray(data.results) && data.results.length > 0) {
+            const formatted = data.results
+              .filter(item => item.title && item.description && item.image_url)
+              .slice(0, 10)
+              .map((item) => ({
+                title: item.title,
+                description: item.description || "Read full article for more details",
+                image: item.image_url || "https://via.placeholder.com/400x300?text=No+Image",
+                url: item.link || "#",
+              }));
+
+            if (formatted.length > 0) {
+              console.log(`✅ Loaded ${formatted.length} articles from NewsData.io`);
+              setArticles(formatted);
+              return;
+            }
+          }
+        } catch (newsdataError) {
+          console.warn("⚠️ NewsData.io failed:", newsdataError.message);
         }
 
-        setError("No articles found. Try a different search or mood.");
+        setError("No articles found. Please try a different mood or search term.");
       } catch (err) {
         console.error("❌ Error fetching news:", err.message);
-        setError(`Error: ${err.message}. Please try again.`);
+        setError(`Error: ${err.message}`);
       } finally {
         setLoading(false);
       }
