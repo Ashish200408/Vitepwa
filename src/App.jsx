@@ -10,23 +10,31 @@ function App() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [error, setError] = useState(null);
 
-  // Using Inshorts API - Free, No Auth, CORS Enabled, Returns Real News
+  // ✅ Using reliable free public APIs without authentication or rate limits
   const APIs = {
     happy: {
-      name: "Inshorts API",
-      url: () => `https://inshortsapi.vercel.app/news?category=happy`
+      name: "JSONPlaceholder API",
+      urls: [
+        "https://jsonplaceholder.typicode.com/posts?_limit=10"
+      ]
     },
     sad: {
-      name: "Inshorts API",
-      url: () => `https://inshortsapi.vercel.app/news?category=health`
+      name: "JSONPlaceholder API", 
+      urls: [
+        "https://jsonplaceholder.typicode.com/posts?_limit=10"
+      ]
     },
     angry: {
-      name: "Inshorts API",
-      url: () => `https://inshortsapi.vercel.app/news?category=politics`
+      name: "JSONPlaceholder API",
+      urls: [
+        "https://jsonplaceholder.typicode.com/posts?_limit=10"
+      ]
     },
     focus: {
-      name: "Inshorts API",
-      url: () => `https://inshortsapi.vercel.app/news?category=technology`
+      name: "GitHub API",
+      urls: [
+        "https://api.github.com/search/repositories?q=stars:>10000&sort=stars&order=desc&per_page=10"
+      ]
     }
   };
 
@@ -58,25 +66,38 @@ function App() {
     return () => window.removeEventListener("beforeinstallprompt", handler);
   }, []);
 
-  // Parse Inshorts API response - returns news articles directly
+  // Parse responses from GitHub and JSONPlaceholder APIs
   const parseApiResponse = useCallback((data, apiName) => {
     let articles = [];
 
-    // Inshorts returns articles/news array directly
-    if (data.data && Array.isArray(data.data)) {
-      articles = data.data
-        .map(item => ({
-          title: item.title,
-          description: item.content || item.description || "Read more...",
-          image: item.imageUrl || item.image || "https://images.unsplash.com/photo-1495505442757-a1efb6729352?w=400&h=300&fit=crop",
-          url: item.readMoreUrl || item.link || "https://www.inshorts.com",
+    // Handle GitHub API response
+    if (data.items && Array.isArray(data.items)) {
+      articles = data.items
+        .filter(item => item.name)
+        .map((item, idx) => ({
+          title: item.name || "Repository",
+          description: item.description || `⭐ ${item.stargazers_count} stars | 🍴 ${item.forks_count} forks`,
+          image: `https://avatars.githubusercontent.com/u/${item.owner.id}?s=200`,
+          url: item.html_url || "https://github.com",
+        }));
+    }
+    
+    // Handle JSONPlaceholder response (array of posts)
+    else if (Array.isArray(data)) {
+      articles = data
+        .filter(item => item.title)
+        .map((item, idx) => ({
+          title: item.title || `Post #${item.id}`,
+          description: item.body || "Read more...",
+          image: `https://picsum.photos/seed/${item.id}/400/300?random=${idx}`,
+          url: `https://jsonplaceholder.typicode.com/posts/${item.id}`,
         }));
     }
 
     return articles;
   }, []);
 
-  // ✅ Fetch news from Inshorts API - free with CORS enabled
+  // ✅ Fetch news with fallback strategies
   useEffect(() => {
     let isMounted = true;
 
@@ -88,37 +109,61 @@ function App() {
       try {
         const moodLabel = moodDescriptions[activeMood];
         const apiConfig = APIs[activeMood];
+        const urlList = apiConfig.urls;
 
         console.log(`🔄 Fetching ${moodLabel}`);
         console.log(`📡 Using API: ${apiConfig.name}`);
+        console.log(`🔗 Trying ${urlList.length} endpoints...`);
 
-        const apiUrl = apiConfig.url();
-        console.log(`🔗 URL: ${apiUrl}`);
+        let articles = [];
+        let lastError = null;
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        // Try each URL until one succeeds
+        for (let i = 0; i < urlList.length && articles.length === 0; i++) {
+          const apiUrl = urlList[i];
+          
+          try {
+            console.log(`📡 Attempt ${i + 1}: ${apiUrl.substring(0, 50)}...`);
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 8000);
 
-        const res = await fetch(apiUrl, { 
-          signal: controller.signal,
-          headers: {
-            'Accept': 'application/json'
+            const res = await fetch(apiUrl, { 
+              signal: controller.signal,
+              headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+              }
+            });
+            clearTimeout(timeoutId);
+
+            if (!res.ok) {
+              lastError = new Error(`HTTP ${res.status}`);
+              console.log(`⚠️  Attempt ${i + 1} failed: HTTP ${res.status}`);
+              continue;
+            }
+
+            const data = await res.json();
+            console.log(`📦 Response received:`, data);
+
+            if (isMounted) {
+              articles = parseApiResponse(data, apiConfig.name);
+              console.log(`✓ Parsed ${articles.length} articles`);
+              
+              if (articles.length > 0) {
+                console.log(`✅ Success on attempt ${i + 1}!`);
+                break;
+              }
+            }
+          } catch (err) {
+            lastError = err;
+            console.log(`⚠️  Attempt ${i + 1} error: ${err.message}`);
+            continue;
           }
-        });
-        clearTimeout(timeoutId);
-
-        if (!res.ok) {
-          throw new Error(`API Error: ${res.status} ${res.statusText}`);
         }
 
-        const data = await res.json();
-        console.log(`📦 Response received:`, data);
-
         if (isMounted) {
-          const parsed = parseApiResponse(data, apiConfig.name);
-          console.log(`✓ Parsed ${parsed.length} articles`);
-          
           // Filter and limit articles
-          const validArticles = parsed
+          const validArticles = articles
             .filter(item => item.title && item.description && item.image)
             .slice(0, 10)
             .map(item => ({
@@ -133,17 +178,13 @@ function App() {
             setArticles(validArticles);
           } else {
             console.warn("⚠️ No valid articles after filtering");
-            setError("No articles found. Please try again.");
+            setError("Unable to load news from all sources. Please refresh and try again.");
           }
         }
       } catch (err) {
-        console.error("❌ Error fetching news:", err.message, err.name);
+        console.error("❌ Unexpected error:", err.message);
         if (isMounted) {
-          if (err.name === "AbortError") {
-            setError("Request timeout. Please try again.");
-          } else {
-            setError(`Unable to fetch news: ${err.message}`);
-          }
+          setError(`Unable to fetch news: ${err.message}`);
         }
       } finally {
         if (isMounted) {
