@@ -12,7 +12,7 @@ function App() {
   const [error, setError] = useState(null);
 
   // ✅ Unified News API - Single API for all usages
-  // Using NewsAPI.org for consistent data across all moods
+  // Using a public NewsAPI mirror for consistent data across all moods
 
   // Mood descriptions
   const moodDescriptions = {
@@ -72,7 +72,7 @@ function App() {
         if (!isMounted) return;
 
         if (apiResponse.status === 'error') {
-          setError(apiResponse.error || 'Failed to fetch news. Please check your API key.');
+          setError(apiResponse.error || 'Failed to fetch news. Please check your internet connection.');
           console.error('❌ API Error:', apiResponse.error);
           return;
         }
@@ -170,7 +170,7 @@ function App() {
           <div className="error-message">
             <p>⚠️ {error}</p>
             <p style={{ fontSize: "0.9rem", marginTop: "5px" }}>
-              API Key: Set YOUR_NEWS_API_KEY in <code>src/newsApi.js</code>
+              If this persists, check your internet connection or try again later.
             </p>
           </div>
         )}
