@@ -1,11 +1,12 @@
 // newsApi.js
 // Unified News API abstraction for all kinds of usages
 
-// Use a public NewsAPI mirror that works without an API key
-// (This keeps the app working in the browser without needing to expose a key)
-const NEWS_API_BASE = 'https://saurav.tech/NewsAPI/v2';
+// NewsData.io API - requires an API key (provided by user)
+// Docs: https://newsdata.io/docs
+const NEWSDATA_API_KEY = 'pub_90d6c79709dc44d286b1cc7faa9855ce';
+const NEWSDATA_URL = 'https://newsdata.io/api/1/news';
 
-// Mood->keywords mapping (used for the "everything" endpoint)
+// Mood->keywords mapping (used for the search query)
 export const MOOD_KEYWORDS = {
   happy: 'happy inspiring celebration achievement award positive',
   sad: 'mental health depression wellness therapy support care',
@@ -13,8 +14,9 @@ export const MOOD_KEYWORDS = {
   focus: 'artificial intelligence technology programming developer code'
 };
 
-const EVERYTHING_URL = `${NEWS_API_BASE}/everything`;
-const TOP_HEADLINES_URL = `${NEWS_API_BASE}/top-headlines`;
+// Public mirror fallback (no API key required)
+const FALLBACK_BASE = 'https://saurav.tech/NewsAPI/v2';
+const FALLBACK_TOP_HEADLINES = `${FALLBACK_BASE}/top-headlines`;
 
 /**
  * Fetch articles from News API based on keywords
@@ -22,18 +24,36 @@ const TOP_HEADLINES_URL = `${NEWS_API_BASE}/top-headlines`;
  * @param {Object} options - Additional options for the API call
  * @returns {Promise<Object>} - Articles or error response
  */
+function normalizeNewsDataResponse(raw) {
+  // NewsData.io returns `results[]` instead of `articles[]`.
+  // Normalize it to match the app's expected shape (NewsAPI format).
+  const items = Array.isArray(raw.results) ? raw.results : raw.articles || [];
+
+  return {
+    status: raw.status || 'success',
+    totalResults: raw.totalResults || items.length,
+    articles: items.map((item) => ({
+      title: item.title || item.description || '',
+      description: item.description || item.summary || '',
+      urlToImage: item.image_url || item.image || '',
+      url: item.link || item.url || '',
+      source: { name: item.source_id || item.source || 'News' },
+      publishedAt: item.pubDate || item.publishedAt || item.date || ''
+    }))
+  };
+}
+
 export async function fetchNewsByMood(mood = 'happy', options = {}) {
   const keywords = MOOD_KEYWORDS[mood] || MOOD_KEYWORDS.happy;
   const params = {
+    apikey: NEWSDATA_API_KEY,
     q: keywords,
-    sortBy: 'publishedAt',
     language: 'en',
-    pageSize: 20,
     ...options
   };
 
   const query = new URLSearchParams(params).toString();
-  const url = `${EVERYTHING_URL}?${query}`;
+  const url = `${NEWSDATA_URL}?${query}`;
 
   try {
     console.log(`📡 [${mood}] Fetching news...`);
@@ -49,23 +69,24 @@ export async function fetchNewsByMood(mood = 'happy', options = {}) {
 
     if (!response.ok) {
       const errorBody = await response.text().catch(() => null);
-      console.warn('❗ News API responded with non-OK status', response.status, errorBody);
+      console.warn('❗ NewsData.io responded with non-OK status', response.status, errorBody);
       throw new Error(`HTTP ${response.status}`);
     }
 
-    const data = await response.json();
+    const raw = await response.json();
 
-    if (data.status === 'error') {
-      throw new Error(`API Error: ${data.message || data.code}`);
+    if (raw.status === 'error') {
+      throw new Error(`API Error: ${raw.message || raw.code}`);
     }
 
+    const data = normalizeNewsDataResponse(raw);
     console.log(`✅ Retrieved ${data.articles?.length || 0} articles`);
     return data;
   } catch (error) {
     console.error('❌ News API Error:', error?.message || error);
 
-    // Fallback: try top-headlines endpoint
-    console.log('⚠️ Falling back to top-headlines endpoint...');
+    // Fallback: try public mirror endpoint
+    console.log('⚠️ Falling back to public news mirror endpoint...');
     return fetchBasicNews(mood);
   }
 }
@@ -73,7 +94,7 @@ export async function fetchNewsByMood(mood = 'happy', options = {}) {
 // Fallback function: Fetch top headlines (no API key required)
 async function fetchBasicNews(mood) {
   try {
-    const response = await fetch(`${TOP_HEADLINES_URL}?country=us&pageSize=20`);
+    const response = await fetch(`${FALLBACK_TOP_HEADLINES}?country=us&pageSize=20`);
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
@@ -100,15 +121,14 @@ async function fetchBasicNews(mood) {
  */
 export async function fetchNewsByQuery(query, options = {}) {
   const params = {
+    apikey: NEWSDATA_API_KEY,
     q: query,
-    sortBy: 'publishedAt',
     language: 'en',
-    pageSize: 20,
     ...options
   };
 
   const queryString = new URLSearchParams(params).toString();
-  const url = `${EVERYTHING_URL}?${queryString}`;
+  const url = `${NEWSDATA_URL}?${queryString}`;
 
   try {
     console.log(`📡 Searching: "${query}"`);
@@ -128,12 +148,13 @@ export async function fetchNewsByQuery(query, options = {}) {
       throw new Error(`HTTP ${response.status}`);
     }
 
-    const data = await response.json();
+    const raw = await response.json();
 
-    if (data.status === 'error') {
-      throw new Error(`API Error: ${data.message || data.code}`);
+    if (raw.status === 'error') {
+      throw new Error(`API Error: ${raw.message || raw.code}`);
     }
 
+    const data = normalizeNewsDataResponse(raw);
     console.log(`✅ Found ${data.articles?.length || 0} articles`);
     return data;
   } catch (error) {
