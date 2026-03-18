@@ -1,6 +1,7 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import "./App.css";
 import PWABadge from "./PWABadge";
+import { fetchNewsByMood, fetchNewsByQuery, MOOD_KEYWORDS } from "./newsApi";
 
 function App() {
   const [articles, setArticles] = useState([]);
@@ -10,43 +11,8 @@ function App() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [error, setError] = useState(null);
 
-  // ✅ Using publicly accessible free APIs with CORS enabled (verified working)
-  // Use CORS proxy for all API URLs
-  const cors = "https://corsproxy.io/?";
-  const APIs = {
-    happy: {
-      name: "Random User API",
-      urls: [
-        cors + "https://randomuser.me/api/?results=10"
-      ]
-    },
-    sad: {
-      name: "Trivia API", 
-      urls: [
-        cors + "https://opentdb.com/api.php?amount=10&type=multiple"
-      ]
-    },
-    angry: {
-      name: "Rest Countries API",
-      urls: [
-        cors + "https://restcountries.com/v3.1/all?fields=name,population,region"
-      ]
-    },
-    focus: {
-      name: "Pokemon API",
-      urls: [
-        cors + "https://pokeapi.co/api/v2/pokemon?limit=10"
-      ]
-    }
-  };
-
-  // Mood-to-keywords mapping (very distinct search terms)
-  const moodMap = {
-    happy: "happy inspiring celebration achievement award",
-    sad: "mental health depression wellness therapy support",
-    angry: "protest strike labor rights corruption scandal",
-    focus: "artificial intelligence technology programming developer",
-  };
+  // ✅ Unified News API - Single API for all usages
+  // Using NewsAPI.org for consistent data across all moods
 
   // Mood descriptions
   const moodDescriptions = {
@@ -68,62 +34,25 @@ function App() {
     return () => window.removeEventListener("beforeinstallprompt", handler);
   }, []);
 
-  // Parse responses from multiple public APIs
-  const parseApiResponse = useCallback((data, apiName) => {
-    let articles = [];
-
-    // Handle Random User API response (happy)
-    if (data.results && Array.isArray(data.results)) {
-      articles = data.results
-        .filter(user => user.name)
-        .map(user => ({
-          title: `👤 ${user.name.first} ${user.name.last}`,
-          description: `From ${user.location.city}, ${user.location.country}. ${user.email}`,
-          image: user.picture?.medium || user.picture?.large || "https://images.unsplash.com/photo-1495505442757-a1efb6729352?w=400&h=300&fit=crop",
-          url: "#",
-        }));
-    }
-    
-    // Handle Trivia Database response (sad)
-    else if (data.results && Array.isArray(data.results) && data.results[0]?.question) {
-      articles = data.results
-        .filter(q => q.question)
-        .map((q, idx) => ({
-          title: `❓ Trivia Question ${idx + 1}`,
-          description: q.question.replace(/&quot;/g, '"').replace(/&#039;/g, "'").substring(0, 160),
-          image: "https://images.unsplash.com/photo-1532012197267-da84610ee6da?w=400&h=300&fit=crop",
-          url: "#",
-        }));
-    }
-    
-    // Handle Rest Countries API response (angry)
-    else if (Array.isArray(data) && data[0]?.name) {
-      articles = data
-        .filter(country => country.name)
-        .slice(0, 10)
-        .map((country, idx) => ({
-          title: `🌍 ${country.name?.common || country.name}`,
-          description: `Region: ${country.region || 'N/A'} | Population: ${country.population?.toLocaleString() || 'N/A'}`,
-          image: `https://flagcdn.com/w400/${country.cca2?.toLowerCase()}.png`,
-          url: "#",
-        }));
-    }
-    
-    // Handle Pokemon API response (focus)
-    else if (data.results && Array.isArray(data.results) && data.results[0]?.name) {
-      articles = data.results
-        .map((pokemon, idx) => ({
-          title: `🎮 ${pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1)}`,
-          description: `Pokemon #${idx + 1}. A fascinating creature from the Pokedex.`,
-          image: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${idx + 1}.png`,
-          url: pokemon.url || "#",
-        }));
+  // Parse News API response into consistent article format
+  const parseNewsApiResponse = (data) => {
+    if (!data.articles || !Array.isArray(data.articles)) {
+      return [];
     }
 
-    return articles;
-  }, []);
+    return data.articles
+      .filter(article => article.title && article.description && article.urlToImage)
+      .map(article => ({
+        title: article.title,
+        description: article.description,
+        image: article.urlToImage,
+        url: article.url,
+        source: article.source?.name || 'News',
+        publishedAt: article.publishedAt
+      }));
+  };
 
-  // ✅ Fetch news with fallback strategies
+  // ✅ Unified fetch logic - Single API call for all moods and searches
   useEffect(() => {
     let isMounted = true;
 
@@ -133,84 +62,33 @@ function App() {
       setArticles([]);
 
       try {
-        const moodLabel = moodDescriptions[activeMood];
-        const apiConfig = APIs[activeMood];
-        const urlList = apiConfig.urls;
+        console.log(`🔄 Fetching news for mood: ${activeMood}`);
+        
+        // Use single API - either search by mood or by custom query
+        const apiResponse = search 
+          ? await fetchNewsByQuery(search)
+          : await fetchNewsByMood(activeMood);
 
-        console.log(`🔄 Fetching ${moodLabel}`);
-        console.log(`📡 Using API: ${apiConfig.name}`);
-        console.log(`🔗 Trying ${urlList.length} endpoints...`);
+        if (!isMounted) return;
 
-        let articles = [];
-        let lastError = null;
-
-        // Try each URL until one succeeds
-        for (let i = 0; i < urlList.length && articles.length === 0; i++) {
-          const apiUrl = urlList[i];
-          
-          try {
-            console.log(`📡 Attempt ${i + 1}: ${apiUrl.substring(0, 50)}...`);
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 8000);
-
-            const res = await fetch(apiUrl, { 
-              signal: controller.signal,
-              headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-              }
-            });
-            clearTimeout(timeoutId);
-
-            if (!res.ok) {
-              lastError = new Error(`HTTP ${res.status}`);
-              console.log(`⚠️  Attempt ${i + 1} failed: HTTP ${res.status}`);
-              continue;
-            }
-
-            const data = await res.json();
-            console.log(`📦 Response received:`, data);
-
-            if (isMounted) {
-              articles = parseApiResponse(data, apiConfig.name);
-              console.log(`✓ Parsed ${articles.length} articles`);
-              
-              if (articles.length > 0) {
-                console.log(`✅ Success on attempt ${i + 1}!`);
-                break;
-              }
-            }
-          } catch (err) {
-            lastError = err;
-            console.log(`⚠️  Attempt ${i + 1} error: ${err.message}`);
-            continue;
-          }
+        if (apiResponse.status === 'error') {
+          setError(apiResponse.error || 'Failed to fetch news. Please check your API key.');
+          console.error('❌ API Error:', apiResponse.error);
+          return;
         }
 
-        if (isMounted) {
-          // Filter and limit articles
-          const validArticles = articles
-            .filter(item => item.title && item.description && item.image)
-            .slice(0, 10)
-            .map(item => ({
-              ...item,
-              description: item.description.substring(0, 160)
-            }));
+        const parsed = parseNewsApiResponse(apiResponse);
+        console.log(`✅ Fetched ${parsed.length} articles`);
 
-          console.log(`✓ Valid articles: ${validArticles.length}`);
-
-          if (validArticles.length > 0) {
-            console.log(`✅ SUCCESS: Loaded ${validArticles.length} articles`);
-            setArticles(validArticles);
-          } else {
-            console.warn("⚠️ No valid articles after filtering");
-            setError("Unable to load news from all sources. Please refresh and try again.");
-          }
+        if (parsed.length > 0) {
+          setArticles(parsed.slice(0, 10));
+        } else {
+          setError('No articles found. Try different keywords.');
         }
       } catch (err) {
-        console.error("❌ Unexpected error:", err.message);
+        console.error('❌ Fetch Error:', err);
         if (isMounted) {
-          setError(`Unable to fetch news: ${err.message}`);
+          setError(`Error: ${err.message}`);
         }
       } finally {
         if (isMounted) {
@@ -219,14 +97,13 @@ function App() {
       }
     };
 
-    // Add small delay before fetching
-    const timer = setTimeout(fetchNews, 100);
+    const timer = setTimeout(fetchNews, 300);
     
     return () => {
       clearTimeout(timer);
       isMounted = false;
     };
-  }, [activeMood, parseApiResponse, moodDescriptions, APIs]);
+  }, [activeMood, search]);
 
   const handleMood = (mood) => {
     setActiveMood(mood);
@@ -293,7 +170,7 @@ function App() {
           <div className="error-message">
             <p>⚠️ {error}</p>
             <p style={{ fontSize: "0.9rem", marginTop: "5px" }}>
-              Make sure your API key is valid and you have internet connection.
+              API Key: Set YOUR_NEWS_API_KEY in <code>src/newsApi.js</code>
             </p>
           </div>
         )}
