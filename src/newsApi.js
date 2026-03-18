@@ -2,7 +2,7 @@
 // Unified News API abstraction for all kinds of usages
 
 const NEWS_API_URL = 'https://newsapi.org/v2/everything';
-const API_KEY = 'YOUR_NEWS_API_KEY'; // Replace with your actual API key from newsapi.org
+const API_KEY = 'cf83b8449481437a8b946a522b96e0e7'; // Replace with your actual API key from newsapi.org
 
 // Mood to search keywords mapping
 export const MOOD_KEYWORDS = {
